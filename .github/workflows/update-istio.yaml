@@ -1,0 +1,49 @@
+name: update
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron:  '0 8 */1 * *'
+  push:
+    branches:
+      - 'main'
+
+permissions:
+  contents: write
+
+jobs:
+  istio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: main
+      - name: Find Istio latest version
+        id: get-istioctl
+        uses: istio/get-istioctl@e9b2b82bc1cecf150ec6aee77ceee8c256f4faf4
+        with:
+          version: "1.*"
+      - name: Set the Istio version
+        id: check
+        env:
+          ISTIO_VERSION: ${{ steps.get-istioctl.outputs.version }}
+        run: |
+          echo "Found Istio version ${ISTIO_VERSION}"
+          yq eval '.data.version=env(ISTIO_VERSION)' -i ./clusters/my-cluster/istio-version.yaml
+
+          if [[ $(git diff --stat) != '' ]]; then
+            echo ::set-output name=version::${ISTIO_VERSION}
+          fi
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v3
+        if: steps.check.outputs.version
+        with:
+          token: ${{ secrets.GH_ADMIN_TOKEN }}
+          committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          commit-message: Update Istio to ${{ steps.check.outputs.version }}
+          title: Update Istio to ${{ steps.check.outputs.version }}
+          body: |
+            Istio v${{ steps.check.outputs.version }}
+          branch: update-istio

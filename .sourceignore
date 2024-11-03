@@ -1,0 +1,7 @@
+# Flux ignore
+# https://github.com/nholuongut/flux#excluding-files
+
+# Exclude dirs and files which don't contain Kubernetes resources
+.github/
+docs/
+*.md
